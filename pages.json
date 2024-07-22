@@ -3,7 +3,10 @@
 		{
 			"path": "pages/index/index",
 			"style": {
-				"navigationBarTitleText": "uni-app"
+				// 设置导航栏的标题
+				"navigationBarTitleText": "积云AI助手",
+				// 设置自定义的导航栏
+				"navigationStyle": "custom"
 			}
 		}
 	],

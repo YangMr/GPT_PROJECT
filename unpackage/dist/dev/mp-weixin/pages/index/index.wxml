@@ -1,1 +1,1 @@
-<view class="content"></view>
+<view class="nav_bar_custom" style="{{a}}"><view class="top_height"></view><view class="nav_content"><image src="/static/logo-a.png" mode="widthFix"></image><view class="nav_text"><text>AI助手</text><text>你的智能助手,帮助你获取知识</text></view></view></view><view style="{{b + ';' + c}}"></view><view class="Sent_information backdrop your-element" style="{{e}}">{{d}}</view>

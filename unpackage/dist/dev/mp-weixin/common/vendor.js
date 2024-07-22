@@ -14,6 +14,60 @@ function makeMap(str, expectsLowerCase) {
   }
   return expectsLowerCase ? (val) => !!map[val.toLowerCase()] : (val) => !!map[val];
 }
+function normalizeStyle(value) {
+  if (isArray(value)) {
+    const res = {};
+    for (let i = 0; i < value.length; i++) {
+      const item = value[i];
+      const normalized = isString(item) ? parseStringStyle(item) : normalizeStyle(item);
+      if (normalized) {
+        for (const key in normalized) {
+          res[key] = normalized[key];
+        }
+      }
+    }
+    return res;
+  } else if (isString(value)) {
+    return value;
+  } else if (isObject(value)) {
+    return value;
+  }
+}
+const listDelimiterRE = /;(?![^(]*\))/g;
+const propertyDelimiterRE = /:([^]+)/;
+const styleCommentRE = /\/\*.*?\*\//gs;
+function parseStringStyle(cssText) {
+  const ret = {};
+  cssText.replace(styleCommentRE, "").split(listDelimiterRE).forEach((item) => {
+    if (item) {
+      const tmp = item.split(propertyDelimiterRE);
+      tmp.length > 1 && (ret[tmp[0].trim()] = tmp[1].trim());
+    }
+  });
+  return ret;
+}
+const toDisplayString = (val) => {
+  return isString(val) ? val : val == null ? "" : isArray(val) || isObject(val) && (val.toString === objectToString || !isFunction(val.toString)) ? JSON.stringify(val, replacer, 2) : String(val);
+};
+const replacer = (_key, val) => {
+  if (val && val.__v_isRef) {
+    return replacer(_key, val.value);
+  } else if (isMap(val)) {
+    return {
+      [`Map(${val.size})`]: [...val.entries()].reduce((entries, [key, val2]) => {
+        entries[`${key} =>`] = val2;
+        return entries;
+      }, {})
+    };
+  } else if (isSet(val)) {
+    return {
+      [`Set(${val.size})`]: [...val.values()]
+    };
+  } else if (isObject(val) && !isArray(val) && !isPlainObject(val)) {
+    return String(val);
+  }
+  return val;
+};
 const EMPTY_OBJ = Object.freeze({});
 const EMPTY_ARR = Object.freeze([]);
 const NOOP = () => {
@@ -424,9 +478,9 @@ function assertType$1(value, type) {
   let valid;
   const expectedType = getType$1(type);
   if (isSimpleType$1(expectedType)) {
-    const t = typeof value;
-    valid = t === expectedType.toLowerCase();
-    if (!valid && t === "object") {
+    const t2 = typeof value;
+    valid = t2 === expectedType.toLowerCase();
+    if (!valid && t2 === "object") {
       valid = value instanceof type;
     }
   } else if (expectedType === "Object") {
@@ -1189,7 +1243,7 @@ function populateParameters(fromRes, toRes) {
   let _SDKVersion = SDKVersion;
   const hostLanguage = language.replace(/_/g, "-");
   const parameters = {
-    appId: "",
+    appId: "__UNI__07A820C",
     appName: "GPT_PROJECT",
     appVersion: "1.0.0",
     appVersionCode: "100",
@@ -1333,7 +1387,7 @@ const getAppBaseInfo = {
       hostName: _hostName,
       hostSDKVersion: SDKVersion,
       hostTheme: theme,
-      appId: "",
+      appId: "__UNI__07A820C",
       appName: "GPT_PROJECT",
       appVersion: "1.0.0",
       appVersionCode: "100",
@@ -3213,8 +3267,8 @@ function doWatch(source, cb, { immediate, deep, flush, onTrack, onTrigger } = EM
       warn(`watch() "deep" option is only respected when using the watch(source, callback, options?) signature.`);
     }
   }
-  const warnInvalidSource = (s) => {
-    warn(`Invalid watch source: `, s, `A watch source can only be a getter/effect function, a ref, a reactive object, or an array of these types.`);
+  const warnInvalidSource = (s2) => {
+    warn(`Invalid watch source: `, s2, `A watch source can only be a getter/effect function, a ref, a reactive object, or an array of these types.`);
   };
   const instance = getCurrentScope() === (currentInstance === null || currentInstance === void 0 ? void 0 : currentInstance.scope) ? currentInstance : null;
   let getter;
@@ -3228,21 +3282,21 @@ function doWatch(source, cb, { immediate, deep, flush, onTrack, onTrigger } = EM
     deep = true;
   } else if (isArray(source)) {
     isMultiSource = true;
-    forceTrigger = source.some((s) => isReactive(s) || isShallow(s));
-    getter = () => source.map((s) => {
-      if (isRef(s)) {
-        return s.value;
-      } else if (isReactive(s)) {
-        return traverse(s);
-      } else if (isFunction(s)) {
+    forceTrigger = source.some((s2) => isReactive(s2) || isShallow(s2));
+    getter = () => source.map((s2) => {
+      if (isRef(s2)) {
+        return s2.value;
+      } else if (isReactive(s2)) {
+        return traverse(s2);
+      } else if (isFunction(s2)) {
         return callWithErrorHandling(
-          s,
+          s2,
           instance,
           2
           /* ErrorCodes.WATCH_GETTER */
         );
       } else {
-        warnInvalidSource(s);
+        warnInvalidSource(s2);
       }
     });
   } else if (isFunction(source)) {
@@ -3470,43 +3524,43 @@ function injectHook(type, hook, target = currentInstance, prepend = false) {
     warn(`${apiName} is called when there is no active component instance to be associated with. Lifecycle injection APIs can only be used during execution of setup().`);
   }
 }
-const createHook = (lifecycle) => (hook, target = currentInstance) => (
+const createHook$1 = (lifecycle) => (hook, target = currentInstance) => (
   // post-create lifecycle registrations are noops during SSR (except for serverPrefetch)
   (!isInSSRComponentSetup || lifecycle === "sp") && injectHook(lifecycle, (...args) => hook(...args), target)
 );
-const onBeforeMount = createHook(
+const onBeforeMount = createHook$1(
   "bm"
   /* LifecycleHooks.BEFORE_MOUNT */
 );
-const onMounted = createHook(
+const onMounted = createHook$1(
   "m"
   /* LifecycleHooks.MOUNTED */
 );
-const onBeforeUpdate = createHook(
+const onBeforeUpdate = createHook$1(
   "bu"
   /* LifecycleHooks.BEFORE_UPDATE */
 );
-const onUpdated = createHook(
+const onUpdated = createHook$1(
   "u"
   /* LifecycleHooks.UPDATED */
 );
-const onBeforeUnmount = createHook(
+const onBeforeUnmount = createHook$1(
   "bum"
   /* LifecycleHooks.BEFORE_UNMOUNT */
 );
-const onUnmounted = createHook(
+const onUnmounted = createHook$1(
   "um"
   /* LifecycleHooks.UNMOUNTED */
 );
-const onServerPrefetch = createHook(
+const onServerPrefetch = createHook$1(
   "sp"
   /* LifecycleHooks.SERVER_PREFETCH */
 );
-const onRenderTriggered = createHook(
+const onRenderTriggered = createHook$1(
   "rtg"
   /* LifecycleHooks.RENDER_TRIGGERED */
 );
-const onRenderTracked = createHook(
+const onRenderTracked = createHook$1(
   "rtc"
   /* LifecycleHooks.RENDER_TRACKED */
 );
@@ -4402,7 +4456,7 @@ function isSameType(a, b) {
 }
 function getTypeIndex(type, expectedTypes) {
   if (isArray(expectedTypes)) {
-    return expectedTypes.findIndex((t) => isSameType(t, type));
+    return expectedTypes.findIndex((t2) => isSameType(t2, type));
   } else if (isFunction(expectedTypes)) {
     return isSameType(expectedTypes, type) ? 0 : -1;
   }
@@ -4450,9 +4504,9 @@ function assertType(value, type) {
   let valid;
   const expectedType = getType(type);
   if (isSimpleType(expectedType)) {
-    const t = typeof value;
-    valid = t === expectedType.toLowerCase();
-    if (!valid && t === "object") {
+    const t2 = typeof value;
+    valid = t2 === expectedType.toLowerCase();
+    if (!valid && t2 === "object") {
       valid = value instanceof type;
     }
   } else if (expectedType === "Object") {
@@ -4745,6 +4799,7 @@ function createComponentInstance(vnode, parent, suspense) {
   return instance;
 }
 let currentInstance = null;
+const getCurrentInstance = () => currentInstance || currentRenderingInstance;
 const setCurrentInstance = (instance) => {
   currentInstance = instance;
   instance.scope.on();
@@ -5563,6 +5618,24 @@ function createVueApp(rootComponent, rootProps = null) {
   };
   return app;
 }
+function useCssVars(getter) {
+  const instance = getCurrentInstance();
+  if (!instance) {
+    warn(`useCssVars is called without current active component instance.`);
+    return;
+  }
+  initCssVarsRender(instance, getter);
+}
+function initCssVarsRender(instance, getter) {
+  instance.ctx.__cssVars = () => {
+    const vars = getter(instance.proxy);
+    const cssVars = {};
+    for (const key in vars) {
+      cssVars[`--${key}`] = vars[key];
+    }
+    return cssVars;
+  };
+}
 function injectLifecycleHook(name, hook, publicThis, instance) {
   if (isFunction(hook)) {
     injectHook(name, hook.bind(publicThis), instance);
@@ -5743,6 +5816,24 @@ function getCreateApp() {
     return my[method];
   }
 }
+function stringifyStyle(value) {
+  if (isString(value)) {
+    return value;
+  }
+  return stringify(normalizeStyle(value));
+}
+function stringify(styles) {
+  let ret = "";
+  if (!styles || isString(styles)) {
+    return ret;
+  }
+  for (const key in styles) {
+    ret += `${key.startsWith(`--`) ? key : hyphenate(key)}:${styles[key]};`;
+  }
+  return ret;
+}
+const s = (value) => stringifyStyle(value);
+const t = (val) => toDisplayString(val);
 function createApp$1(rootComponent, rootProps = null) {
   rootComponent && (rootComponent.mpType = "app");
   return createVueApp(rootComponent, rootProps).use(plugin);
@@ -6572,5 +6663,16 @@ const createSubpackageApp = initCreateSubpackageApp();
   wx.createPluginApp = global.createPluginApp = createPluginApp;
   wx.createSubpackageApp = global.createSubpackageApp = createSubpackageApp;
 }
+const createHook = (lifecycle) => (hook, target = getCurrentInstance()) => {
+  !isInSSRComponentSetup && injectHook(lifecycle, hook, target);
+};
+const onLaunch = /* @__PURE__ */ createHook(ON_LAUNCH);
 exports._export_sfc = _export_sfc;
 exports.createSSRApp = createSSRApp;
+exports.index = index;
+exports.onLaunch = onLaunch;
+exports.ref = ref;
+exports.s = s;
+exports.t = t;
+exports.unref = unref;
+exports.useCssVars = useCssVars;
