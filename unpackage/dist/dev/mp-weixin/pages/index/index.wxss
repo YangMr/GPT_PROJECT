@@ -62,11 +62,13 @@ page {
 }
 .Sent_information {
   padding: 10px;
-  background-color: #fff;
   margin: 20rpx;
   border-radius: 10rpx;
   line-height: 1.5;
   font-size: 29rpx;
+}
+.backdrop {
+  background-color: #fefefe;
 }
 .your-element {
   animation-name: fadeInFromTop;
@@ -83,4 +85,107 @@ page {
     opacity: 1;
     transform: translateY(0);
 }
+}
+.problem_top image {
+  width: 35rpx;
+  display: block;
+  margin-right: 10rpx;
+}
+.problem_top text {
+  font-weight: bold;
+}
+.default_problem {
+  color: #3875f6;
+  border: 1rpx solid #e8f0fc;
+  padding: 15rpx 0;
+  text-align: center;
+  font-weight: bold;
+  border-radius: 40rpx;
+  margin: 20rpx 0;
+}
+.user_backdrop {
+  display: flex;
+  margin: 20rpx;
+  color: #555d92;
+}
+.user_backdrop image {
+  width: 38rpx;
+  display: block;
+  border-radius: 50%;
+}
+.user_backdrop view:nth-child(1) {
+  margin-right: 10rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+}
+.user_backdrop view:nth-child(2) {
+  line-height: 1.5;
+  align-self: center;
+}
+.loading {
+  display: flex;
+  align-items: center;
+}
+.loader {
+  width: 40rpx;
+  height: 40rpx;
+  border: 5rpx solid #f3f3f3;
+  border-radius: 50%;
+  margin-right: 10rpx;
+  border-top: 5rpx solid #3498db;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+0% {
+    transform: rotate(0deg);
+}
+100% {
+    transform: rotate(360deg);
+}
+}
+.ai_content {
+  display: flex;
+  flex-direction: column;
+}
+.ai_content text {
+  padding-bottom: 10rpx;
+  border-bottom: 1rpx solid #f3f3f4;
+}
+.ai_content image {
+  width: 29rpx;
+  margin-top: 10rpx;
+  align-self: flex-end;
+}
+.input_field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  border-top: 1rpx solid #eee;
+  padding-top: 10rpx;
+  padding-bottom: 70rpx;
+  background-color: #f6f8fe;
+}
+.input_field input {
+  width: 100%;
+  background-color: #fff;
+  padding: 20rpx;
+  border-radius: 10rpx;
+}
+.input_field view {
+  width: 80rpx;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10rpx;
+}
+.input_field image {
+  width: 50rpx;
+  height: 50rpx;
+  display: block;
 }
