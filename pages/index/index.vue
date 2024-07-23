@@ -101,6 +101,43 @@ const problemData = ref([
 const messageData = ref([
 "11"
 ])
+
+// websocket实例对象
+let SocketTask = ref(null)
+
+// 连接讯飞星火大模型
+const connentWSServer = async () => {
+	// 调用云函数, 获取到后端返回的大模型接口地址以及appid
+	const res = await uniCloud.callFunction({name: "ai_index"})
+	console.log("Res=>", res)
+	
+	// 使用websocket 连接 星火大模型接口
+	 SocketTask.value = uni.connectSocket({
+		 url : res.result.url,
+		 success (res){
+			 console.log(res, "连接成功")
+		 }
+		})
+	
+	// 监听websocket是否连接成功
+	SocketTask.value.onOpen = () => {
+		console.log("websocket连接成功")
+	}
+	
+	//  监听websocket是否连接失败
+	SocketTask.value.onClose = () => {
+		console.log("websocket连接成功")
+	}
+	
+	//  监听websocket是否连接错误
+	SocketTask.value.onError = () => {
+		console.log("websocket连接错误")
+	}
+}
+
+
+// 初始化调用
+connentWSServer()
 </script>
 
 <style lang="scss">

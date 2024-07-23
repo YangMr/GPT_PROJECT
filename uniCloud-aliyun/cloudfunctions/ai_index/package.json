@@ -1,0 +1,11 @@
+{
+  "name": "ai_index",
+  "dependencies": {
+    "base-64": "^1.0.0",
+    "crypto-js": "^4.2.0",
+    "wx-server-sdk": "^3.0.1"
+  },
+  "extensions": {
+    "uni-cloud-jql": {}
+  }
+}

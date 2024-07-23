@@ -19,6 +19,27 @@ const _sfc_main = {
     const messageData = common_vendor.ref([
       "11"
     ]);
+    let SocketTask = common_vendor.ref(null);
+    const connentWSServer = async () => {
+      const res = await common_vendor.Ws.callFunction({ name: "ai_index" });
+      console.log("Res=>", res);
+      SocketTask.value = common_vendor.index.connectSocket({
+        url: res.result.url,
+        success(res2) {
+          console.log(res2, "连接成功");
+        }
+      });
+      SocketTask.value.onOpen = () => {
+        console.log("websocket连接成功");
+      };
+      SocketTask.value.onClose = () => {
+        console.log("websocket连接成功");
+      };
+      SocketTask.value.onError = () => {
+        console.log("websocket连接错误");
+      };
+    };
+    connentWSServer();
     return (_ctx, _cache) => {
       return common_vendor.e({
         a: common_vendor.s(_ctx.__cssVars()),
