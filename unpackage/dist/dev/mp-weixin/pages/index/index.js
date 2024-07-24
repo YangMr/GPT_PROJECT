@@ -16,54 +16,14 @@ const _sfc_main = {
       "我要在夏天去云南旅游，有什么美食推荐吗",
       "帮我推荐几款流行的家装风格"
     ]);
-    const text = common_vendor.ref("");
     const messageData = common_vendor.ref([]);
+    const text = common_vendor.ref("");
     const sendIngState = common_vendor.ref(false);
-    let SocketTask = common_vendor.ref(null);
-    const socketStatus = common_vendor.ref(false);
-    const historyTextList = common_vendor.ref([]);
     let appid = common_vendor.ref("");
+    let SocketTask = common_vendor.ref(null);
+    const historyTextList = common_vendor.ref([]);
     const sparkResult = common_vendor.ref("");
-    const connentWSServer = async () => {
-      const res = await common_vendor.Ws.callFunction({
-        name: "ai_index"
-      });
-      appid.value = res.result.APPID;
-      SocketTask.value = common_vendor.index.connectSocket({
-        url: res.result.url,
-        success(res2) {
-          console.log(res2, "连接成功");
-          socketStatus.value = true;
-        },
-        fail(error) {
-          console.log(error, "连接失败");
-          common_vendor.index.showToast({
-            title: "出现异常错误",
-            icon: "none"
-          });
-          messageData.value = [];
-          sendIngState.value = false;
-          socketStatus.value = false;
-        }
-      });
-      SocketTask.value.onOpen(() => {
-        console.log("websocket连接成功");
-        socketStatus.value = true;
-      });
-      SocketTask.value.onClose(() => {
-        console.log("websocket断开连接");
-        socketStatus.value = false;
-      });
-      SocketTask.value.onError(() => {
-        console.log("websocket连接错误");
-        socketStatus.value = false;
-      });
-    };
-    connentWSServer();
     const sendMessage = async () => {
-      if (!socketStatus.value) {
-        await connentWSServer();
-      }
       if (text.value.trim().length > 0) {
         text.value = text.value.trim();
       } else {
@@ -80,29 +40,53 @@ const _sfc_main = {
         });
         return false;
       }
-      messageData.value.push({
-        role: "user",
-        content: text.value
+      messageData.value.push(
+        // 用户给ai发送的消息
+        {
+          role: "user",
+          content: text.value
+        }
+      );
+      messageData.value.push(
+        // ai给用户回复的消息
+        {
+          role: "assistant",
+          content: "",
+          loadShow: true,
+          // 展示
+          copyIcon: false
+          // 不展示
+        }
+      );
+      sparkResult.value = "";
+      sendIngState.value = true;
+      const res = await common_vendor.Ws.callFunction({
+        name: "ai_index"
       });
-      messageData.value.push({
-        role: "assistant",
-        content: "",
-        // 控制ai回复思考的状态
-        loadShow: true
-        // 复制ai回复的文本
-        // copyIcon : false
+      appid.value = res.result.APPID;
+      const url = res.result.url;
+      SocketTask.value = common_vendor.index.connectSocket({
+        url,
+        success: (res2) => {
+          console.log("连接成功", res2);
+        },
+        fail: (error) => {
+          console.log(error, "ws连接失败");
+          common_vendor.index.showToast({
+            title: "出现异常错误",
+            icon: "none"
+          });
+          sendIngState.value = false;
+        }
       });
-      sendServerMessage();
-    };
-    const sendServerMessage = () => {
-      historyTextList.value.push({
-        role: "user",
-        content: text.value
-      });
-      text.value = "";
-      console.log("socketStatus", socketStatus.value);
-      if (socketStatus.value) {
-        const data = {
+      SocketTask.value.onOpen(() => {
+        console.log("连接成功,接下来可以发送消息了");
+        historyTextList.value.push({
+          role: "user",
+          content: text.value
+        });
+        text.value = "";
+        const params = {
           "header": {
             "app_id": appid.value
           },
@@ -114,43 +98,83 @@ const _sfc_main = {
           },
           "payload": {
             "message": {
-              "text": historyTextList.value
+              text: historyTextList.value
             }
           }
         };
-        console.log("333");
         SocketTask.value.send({
-          data: JSON.stringify(data),
-          success() {
-            console.log("发送消息成功");
+          data: JSON.stringify(params),
+          success: (res2) => {
+            console.log("发送数据成功", res2);
           },
-          fail(error) {
+          fail: (error) => {
             console.log("发送消息失败");
-            common_vendor.index.showToast({
-              title: "出现异常错误",
-              icon: "none"
-            });
+            common_vendor.index.showToast({ title: "出现异常错误", icon: "none" });
             messageData.value = [];
             sendIngState.value = false;
           }
         });
-      }
-      getServerMessage();
+        getServerMessage();
+      });
+      SocketTask.value.onClose(() => {
+        console.log("websocket断开连接");
+      });
+      SocketTask.value.onError(() => {
+        console.log("websocket连接错误");
+        messageData.value = [];
+        sendIngState.value = false;
+      });
     };
     const getServerMessage = () => {
-      if (socketStatus.value) {
-        SocketTask.value.onMessage((res) => {
-          messageData.value[messageData.value.length - 1].loadShow = false;
-          const obj = JSON.parse(res.data);
-          const dataArray = obj.payload.choices.text;
-          console.log("dataArray", dataArray);
-          dataArray.forEach((item) => {
-            sparkResult.value += item.content.replace(/↵/g, "/n");
-            messageData.value[messageData.value.length - 1].content = sparkResult.value;
-          });
-          console.log("sparkResult", sparkResult.value);
+      SocketTask.value.onMessage((res) => {
+        messageData.value[messageData.value.length - 1].loadShow = false;
+        const obj = JSON.parse(res.data);
+        if (obj.header.code != 0) {
+          sparkResult.value += obj.header.message.replace(/↵/g, "\n");
+          messageData.value[messageData.value.length - 1].content = sparkResult.value;
+          sendIngState.value = false;
+          messageData.value[messageData.value.length - 1].copyIcon = true;
+          return false;
+        }
+        console.log("message", obj);
+        const dataArray = obj.payload.choices.text;
+        dataArray.forEach((item) => {
+          sparkResult.value += item.content.replace(/↵/g, "\n");
+          messageData.value[messageData.value.length - 1].content = sparkResult.value;
         });
+        common_vendor.index.pageScrollTo({
+          scrollTop: 3e3
+        });
+        if (obj.header.code === 0 && obj.header.status === 2) {
+          historyTextList.value.push({
+            role: "assistant",
+            content: sparkResult.value
+          });
+          sendIngState.value = false;
+        }
+      });
+    };
+    const selectQuestion = (item) => {
+      text.value = item;
+      sendMessage();
+    };
+    const clearMessage = () => {
+      if (sendIngState.value) {
+        common_vendor.index.showToast({
+          title: "等待AI回复完毕",
+          icon: "none"
+        });
+        return false;
       }
+      sparkResult.value = "";
+      messageData.value = [];
+      historyTextList.value = [];
+      text.value = [];
+    };
+    const handleCopy = (value) => {
+      common_vendor.index.setClipboardData({
+        data: value
+      });
     };
     return (_ctx, _cache) => {
       return common_vendor.e({
@@ -169,26 +193,36 @@ const _sfc_main = {
         h: common_vendor.f(problemData.value, (item, index, i0) => {
           return {
             a: common_vendor.t(item),
-            b: index
+            b: common_vendor.o(($event) => selectQuestion(item), index),
+            c: index
           };
         }),
         i: common_vendor.s(_ctx.__cssVars())
       } : {}, {
-        j: common_vendor.s(_ctx.__cssVars()),
-        k: common_vendor.f(messageData.value, (item, index, i0) => {
+        j: common_vendor.f(messageData.value, (item, index, i0) => {
           return common_vendor.e({
-            a: item.loadShow
+            a: item.role === "user"
+          }, item.role === "user" ? {
+            b: common_vendor.t(item.content)
+          } : common_vendor.e({
+            c: item.loadShow
           }, item.loadShow ? {} : {}, {
-            b: common_vendor.t(item.content),
-            c: index
+            d: common_vendor.t(item.content),
+            e: item.copyIcon
+          }, item.copyIcon ? {
+            f: common_vendor.o(($event) => handleCopy(item.content), index)
+          } : {}), {
+            g: index
           });
         }),
-        l: common_vendor.s(_ctx.__cssVars()),
+        k: common_vendor.s(_ctx.__cssVars()),
+        l: common_vendor.o(clearMessage),
         m: common_vendor.o(sendMessage),
         n: text.value,
         o: common_vendor.o(($event) => text.value = $event.detail.value),
         p: common_vendor.o(sendMessage),
-        q: common_vendor.s(_ctx.__cssVars())
+        q: common_vendor.s(_ctx.__cssVars()),
+        r: common_vendor.s(_ctx.__cssVars())
       });
     };
   }

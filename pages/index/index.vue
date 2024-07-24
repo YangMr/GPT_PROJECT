@@ -32,26 +32,29 @@
 			<text>你可以这样问我</text>
 		</view>
 
-		<view class="default_problem" v-for="(item,index) in problemData" :key="index">
+		<view @click="selectQuestion(item)" class="default_problem" v-for="(item,index) in problemData" :key="index">
 			{{item}}
 		</view>
 	</view>
 
-	<!-- 用户发送消息的布局 -->
-	<view class="user_backdrop">
-		<!-- 用户输入的投降 -->
-		<view>
-			<image src="/static/avatar.png" mode="widthFix"></image>
-		</view>
-		<!-- 用户发送的消息 -->
-		<view>
-			你好，我是你的人工智能大模型，现在的我能够学习和理解人类的语言，进行多轮对话，回答问题，高效帮助人们获取信息，知识和灵感~快和我聊聊吧！如果你不确定从哪里开始，可以试试这样问我:
-		</view>
-	</view>
+
 
 	<!-- ai回复消息的布局 -->
 	<block v-for="(item,index) in messageData" :key="index">
-		<view class="Sent_information backdrop">
+		<!-- 用户发送消息的布局 -->
+		<view class="user_backdrop" v-if="item.role === 'user'">
+			<!-- 用户输入的投降 -->
+			<view>
+				<image src="/static/avatar.png" mode="widthFix"></image>
+			</view>
+			<!-- 用户发送的消息 -->
+			<view>
+				<text user-select>{{item.content}}</text>
+				
+			</view>
+		</view>
+
+		<view class="Sent_information backdrop" v-else>
 			<!-- 思考中布局 -->
 			<view class="loading" v-if="item.loadShow">
 				<view class="loader"></view>
@@ -60,12 +63,11 @@
 
 			<!-- 回复内容的布局 -->
 			<view class="ai_content">
-				<text>{{item.content}}</text>
-				<image src="/static/fuzhi.png" mode="widthFix"></image>
+				<text user-select>{{item.content}}</text>
+				<image @click="handleCopy(item.content)" v-if="item.copyIcon" src="/static/fuzhi.png" mode="widthFix"></image>
 			</view>
 		</view>
 	</block>
-
 
 
 
@@ -73,7 +75,7 @@
 	<view class="input_field">
 		<!-- 左侧清空输入内容图标 -->
 		<view>
-			<image src="/static/qingkong.png" mode="widthFix"></image>
+			<image @click="clearMessage" src="/static/qingkong.png" mode="widthFix"></image>
 		</view>
 
 		<input v-model="text" auto-blur confirm-type="send" @confirm="sendMessage" type="text" placeholder="你可以问任何问题" />
@@ -83,20 +85,22 @@
 			<image @click="sendMessage" src="/static/fasong.png" mode="widthFix"></image>
 		</view>
 	</view>
-
+	
+	<view style="height:400rpx;"></view>
 </template>
 
 <script setup>
 	import {
-		ref
-	} from "vue"
-	import {
 		getNavInfo
 	} from "@/utils/navInfo.js"
+	import {
+		ref
+	} from "vue"
 
-	// 进入页面默认提示语
-	const greetSb = ref('你好，我是你的人工智能大模型，现在的我能够学习和理解人类的语言，进行多轮对话，回答问题，高效帮助人们获取信息，知识和灵感~快和我聊聊吧！如果你不确定从哪里开始，可以试试这样问我:')
-	// 提示可以提问的问题
+	// 进入页面的默认文本
+	const greetSb = ref("你好，我是你的人工智能大模型，现在的我能够学习和理解人类的语言，进行多轮对话，回答问题，高效帮助人们获取信息，知识和灵感~快和我聊聊吧！如果你不确定从哪里开始，可以试试这样问我:")
+
+	// 默认提示的问题
 	const problemData = ref([
 		'给我一份关于数字经济的毕业论文大纲',
 		'帮我推荐几个送给女朋友的生日礼物',
@@ -104,210 +108,252 @@
 		'我要在夏天去云南旅游，有什么美食推荐吗',
 		'帮我推荐几款流行的家装风格'
 	])
-	// 输入框输入的内容
-	const text = ref("")
 
-	// 存储用户和ai的对话：临时存储
+	// 临时存储:用户与ai的对话
 	const messageData = ref([])
 
-	// 是否发送成功的状态 false 未开始回复  /  回复完毕 /  出现错误    true: 正在回复中
+	// 定义输入框输入的内容
+	const text = ref("")
+
+	// AI回复的状态  false 未开始 已回复 出现错误 true: 正在回复中
 	const sendIngState = ref(false)
 
-	// websocket实例对象
-	let SocketTask = ref(null)
-
-	// socket连接的状态
-	const socketStatus = ref(false)
-
-	// 初始化一个变量存储完整历史记录信息
-	const historyTextList = ref([])
-
-	//appid
+	// appid
 	let appid = ref("")
 
-	// 初始化一个变量,保存后端返回的消息
+	// 保存websocket实例对象
+	let SocketTask = ref(null)
+
+	// 初始化一个变量,保存完整的(用户发送消息与ai回复)历史聊天记录
+	const historyTextList = ref([])
+	
+	// 初始化一个变量,临时存储保存ai回复的内容
 	const sparkResult = ref("")
+	
 
-	// 连接讯飞星火大模型
-	const connentWSServer = async () => {
-		// 调用云函数, 获取到后端返回的大模型接口地址以及appid
-		const res = await uniCloud.callFunction({
-			name: "ai_index"
-		})
-
-		// 获取后端返回的appid
-		appid.value = res.result.APPID
-
-		// 使用websocket 连接 星火大模型接口
-		SocketTask.value = uni.connectSocket({
-			url: res.result.url,
-			success(res) {
-				console.log(res, "连接成功")
-				socketStatus.value = true
-			},
-			fail(error) {
-				console.log(error, "连接失败")
-				uni.showToast({
-					title: "出现异常错误",
-					icon: "none"
-				})
-				messageData.value = []
-				sendIngState.value = false
-				socketStatus.value = false
-			}
-		})
-
-		// 监听websocket是否连接成功
-		SocketTask.value.onOpen(() => {
-			console.log("websocket连接成功")
-
-			// 将连接的状态修改为true
-			socketStatus.value = true
-
-		})
-
-		//  监听websocket是否连接失败
-		SocketTask.value.onClose(() => {
-			console.log("websocket断开连接")
-			socketStatus.value = false
-		})
-
-		//  监听websocket是否连接错误
-		SocketTask.value.onError(() => {
-			console.log("websocket连接错误")
-			socketStatus.value = false
-		})
-	}
-
-
-	// 初始化调用
-	connentWSServer()
-
-
-
-	// 点击发送按钮的方法
+	// 点击发送按钮触发的方法
 	const sendMessage = async () => {
-
-		if (!socketStatus.value) {
-			await connentWSServer()
-		}
-
-		// console.log("text", text.value)
-
 		// 处理输入框输入的内容
 		if (text.value.trim().length > 0) {
 			text.value = text.value.trim()
 		} else {
-			// 输入框为空的处理
 			uni.showToast({
-				title: "请输入询问内容",
-				icon: "none"
+				title: '请输入询问内容',
+				icon: 'none'
 			})
 			return false
 		}
 
-		// 处理正在回复中, 用户频繁发送问题的处理
+		// AI回复的状态
 		if (sendIngState.value) {
 			uni.showToast({
-				title: "等待AI回复完毕",
-				icon: "none"
+				title: '等待AI回复完毕',
+				icon: 'none'
 			})
 			return false
 		}
 
-		// 临时存储提问的问题(用户给ai发送的对话)
-		messageData.value.push({
-			role: "user",
-			content: text.value
+		// 临时存储与ai对话的内容(包含用户发送的消息与ai回复的内容)
+		messageData.value.push(
+			// 用户给ai发送的消息
+			{
+				role: "user",
+				content: text.value
+			}
+		)
+
+		messageData.value.push(
+			// ai给用户回复的消息
+			{
+				role: "assistant",
+				content: "",
+				loadShow: true, // 展示
+				copyIcon: false // 不展示
+			}
+		)
+
+		// 清除临时存储的上一次ai回复 的内容
+		sparkResult.value = ""
+
+		// 点击发送的时候,这个就变成ai回复中的状态
+		sendIngState.value = true
+
+		// 1. 获取到后端返回的appid与服务器的url
+		const res = await uniCloud.callFunction({
+			name: "ai_index"
 		})
-		// 临时存储提ai回复给用户答案
-		messageData.value.push({
-			role: "assistant",
-			content: "",
-			// 控制ai回复思考的状态
-			loadShow: true,
-			// 复制ai回复的文本
-			// copyIcon : false
+
+		// 保存后台返回的appid, 发送消息的需要appid
+		appid.value = res.result.APPID
+
+		// 获取模型的接口地址
+		const url = res.result.url
+
+		// 连接AI大模型接口
+		SocketTask.value = uni.connectSocket({
+			url,
+			success: (res) => {
+				console.log("连接成功", res)
+			},
+			fail: (error) => {
+				console.log(error, 'ws连接失败');
+				uni.showToast({
+					title: '出现异常错误',
+					icon: 'none'
+				})
+
+				// ai回复的状态修改为不在回复中的状态
+				sendIngState.value = false
+			}
 		})
 
-
-		sendServerMessage()
-
-
-	}
+		// 监听socket是否连接成功
+		SocketTask.value.onOpen(() => {
+			console.log('连接成功,接下来可以发送消息了');
 
 
-	// 给服务端发送消息的方法
-	const sendServerMessage = () => {
+			// 发送消息前创建一个变量,保存当前的发送的消息
+			historyTextList.value.push({
+				role: "user",
+				content: text.value
+			})
 
-		historyTextList.value.push({
-			role: "user",
-			content: text.value
-		})
+			// 清空输入的内容
+			text.value = ""
 
-		// 清空输入的内容
-		text.value = ""
-		console.log("socketStatus",socketStatus.value)
-		if (socketStatus.value) {
-			const data = {
+
+			// 准备后端需要的参数
+			const params = {
 				"header": {
 					"app_id": appid.value,
 				},
 				"parameter": {
 					"chat": {
 						"domain": "generalv3",
-						"temperature": 1
+						"temperature": 1,
 					}
 				},
 				"payload": {
 					"message": {
-						"text": historyTextList.value
+						text : historyTextList.value
 					}
 				}
 			}
-			console.log("333")
+			
+			// 将数据发送给后台
 			SocketTask.value.send({
-				data: JSON.stringify(data),
-				success() {
-					console.log("发送消息成功")
+				data : JSON.stringify(params),
+				success : (res) => {
+					console.log("发送数据成功", res)
 				},
-				fail(error) {
-					console.log("发送消息失败")
-					uni.showToast({
-						title: "出现异常错误",
-						icon: "none"
-					})
+				fail : (error) => {
+					console.log('发送消息失败');
+					uni.showToast({title: '出现异常错误',icon: 'none'})
+					// 清空聊天记录
 					messageData.value = []
+					//  ai回复的状态修改为不在回复中的状态
 					sendIngState.value = false
 				}
 			})
-
-
-		}
-
-		// 调用接受服务端返回的消息
-
-		getServerMessage()
+			
+			// 调用获取ai回复的内容方法
+			getServerMessage()
+		})
+		// 监听后端socket是否关闭连接
+		SocketTask.value.onClose(() => {
+			console.log("websocket断开连接")
+			// 清空消息记录
+			// messageData.value = []
+			// ai回复的状态修改为不在回复中的状态
+			// sendIngState.value = false
+		})
+		// 监听socket是否发生错误
+		SocketTask.value.onError(() => {
+			console.log("websocket连接错误")
+			// 清空消息记录
+			messageData.value = []
+			// ai回复的状态修改为不在回复中的状态
+			sendIngState.value = false
+		})
+	}
+	
+	
+	// 获取ai回复的内容
+	const getServerMessage = () => {
+		SocketTask.value.onMessage(res => {
+			// 在接受后端返回的消息的时候, 取下ai回复中的状态
+			messageData.value[messageData.value.length - 1].loadShow = false
+			
+			// 获取后端返回的数据, 由于后端返回的json字符串, 所以需要json,parse进行解析
+			const obj = JSON.parse(res.data) 
+			// 回复出现错误
+			if(obj.header.code != 0){
+				sparkResult.value += obj.header.message.replace(/↵/g,'\n')
+				messageData.value[messageData.value.length - 1].content = sparkResult.value
+				sendIngState.value = false
+				messageData.value[messageData.value.length - 1].copyIcon = true
+				return false
+			}
+			
+			
+			console.log("message", obj)
+			// 获取ai回复的所有内容
+			const dataArray = obj.payload.choices.text
+			// 拼接ai回复的完整内容
+			dataArray.forEach(item => {
+				 sparkResult.value += item.content.replace(/↵/g,'\n')
+				 messageData.value[messageData.value.length - 1].content = sparkResult.value
+			})
+			
+			uni.pageScrollTo({
+				scrollTop:3000
+			})
+			
+			// 在AI回复完毕的时候,进行处理
+			if(obj.header.code === 0 && obj.header.status === 2){
+				
+				// 将ai回复的记录也保存在历史记录中
+				historyTextList.value.push({
+					role : "assistant",
+					content : sparkResult.value
+				})
+				
+				// 将状态修改为回复完毕的状态
+				sendIngState.value = false
+				
+				// messageData.value[messageData.value.length - 1].copyIcon = true
+			}
+		})
 	}
 
-	// 接受服务端返回的消息
-	const getServerMessage = () => {
-		if (socketStatus.value) {
-			SocketTask.value.onMessage(res => {
-				// console.log("message", res)
-				messageData.value[messageData.value.length - 1].loadShow = false
-				const obj = JSON.parse(res.data)
-
-				const dataArray = obj.payload.choices.text
-				console.log("dataArray", dataArray)
-				dataArray.forEach(item => {
-					sparkResult.value += item.content.replace(/↵/g, "/n")
-					messageData.value[messageData.value.length - 1].content = sparkResult.value
-				})
-
-				console.log("sparkResult", sparkResult.value)
+	// 点击默认提问的问题
+	const selectQuestion = (item) => {
+		text.value = item
+		sendMessage()
+	}
+	
+	// 清空聊天的记录以及输入的内容
+	const clearMessage = () => {
+		// 判断是否是正在回复中
+		if(sendIngState.value){
+			uni.showToast({
+				title : "等待AI回复完毕",
+				icon : "none"
 			})
+			return false
 		}
+		
+		sparkResult.value = ""
+		messageData.value = []
+		historyTextList.value = []
+		text.value = []
+	}
+
+	// 复制文本内容
+	const handleCopy = (value) => {
+		uni.setClipboardData({
+			data : value
+		})
 	}
 </script>
 
